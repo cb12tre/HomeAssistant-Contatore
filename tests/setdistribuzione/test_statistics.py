@@ -63,6 +63,25 @@ def test_giorno_incompleto_scartato():
     assert st.ore_del_giorno(ORE_REALI[:20], date(2026, 10, 12)) is None
 
 
+def test_giorno_tutto_stimato_non_importato():
+    """Il segnaposto a zero servito prima dei dati definitivi non va
+    importato: altrimenti gli zeri restano per sempre nelle statistiche."""
+    giorno = date(2026, 11, 24)
+    curva = _ore(giorno, 24)
+    for elemento in curva:
+        elemento.update(estimated=True, total=0.0)
+    assert st.ore_del_giorno(curva, giorno) is None
+
+
+def test_giorno_con_una_sola_ora_stimata_importato():
+    giorno = date(2026, 11, 24)
+    curva = _ore(giorno, 24)
+    curva[5].update(estimated=True)
+    ore = st.ore_del_giorno(curva, giorno)
+    assert ore is not None
+    assert len(ore) == 24
+
+
 def test_giorno_diverso_da_quello_richiesto():
     assert st.ore_del_giorno(ORE_REALI, date(2026, 10, 13)) is None
 

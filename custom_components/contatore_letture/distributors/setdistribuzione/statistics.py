@@ -23,6 +23,11 @@ giorno ("1,828 kW") è esattamente il quarto d'ora più alto (0,457 kWh) x 4.
 Cambio ora, verificato il 25/10/2026: l'API restituisce 24 elementi anche
 nei giorni da 23 o 25 ore. Le due 02:00 autunnali sono già sommate in un
 solo elemento; quella primaverile è un segnaposto stimato a zero.
+
+Giorno non ancora definitivo: finché i dati non sono pubblicati il portale
+restituisce un giorno completo ma con tutte le ore 'estimated' e a zero
+(visto il 26/11/2026 sui giorni 22, 23 e 24/11). Quel giorno non va
+importato: viene lasciato in coda e riprovato nei cicli successivi.
 """
 from __future__ import annotations
 
@@ -74,7 +79,8 @@ def _kwh_ora(elemento: dict[str, Any]) -> float | None:
 
 def ore_del_giorno(consumi: list[dict[str, Any]], giorno: date) -> dict[datetime, float] | None:
     """{inizio_ora_utc: kWh} per un giorno, o None se la risposta non
-    contiene un giorno completo e coerente (vedi docstring del modulo)."""
+    contiene un giorno completo e coerente (vedi docstring del modulo) o se
+    è tutto stimato, cioè il segnaposto servito prima dei dati definitivi."""
     elementi = [
         c for c in consumi
         if (c.get("year"), c.get("month"), c.get("day")) == (giorno.year, giorno.month, giorno.day)
@@ -90,6 +96,17 @@ def ore_del_giorno(consumi: list[dict[str, Any]], giorno: date) -> dict[datetime
             "Consumi SET Distribuzione del %s: %d ore ricevute, attese %d - giorno "
             "non importato (incompleto o schema cambiato?)",
             giorno, len(elementi), attese,
+        )
+        return None
+
+    # Tutte le ore stimate = giorno non ancora definitivo: il portale serve
+    # un 24 ore a zero in attesa dei dati veri. Importarlo congelerebbe gli
+    # zeri (non viene più richiesto), quindi si lascia in coda.
+    if all(c.get("estimated") for c in elementi):
+        _LOGGER.debug(
+            "Consumi SET Distribuzione del %s: tutte le ore sono stimate, "
+            "giorno non ancora definitivo",
+            giorno,
         )
         return None
 
